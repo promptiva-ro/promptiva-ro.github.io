@@ -17,10 +17,11 @@
     h2 { font-size: 20px; margin: 0 0 8px; }
     .hint { color: #657086; font-size: 14px; margin: 0 0 20px; }
     label { display: block; font-weight: 700; margin: 18px 0 7px; }
-    select, textarea { width: 100%; font: inherit; border: 1px solid #cfd6e5; border-radius: 9px; background: #fff; padding: 11px 12px; color: #263047; }
+    select, textarea, input[type="text"] { width: 100%; font: inherit; border: 1px solid #cfd6e5; border-radius: 9px; background: #fff; padding: 11px 12px; color: #263047; }
     textarea { min-height: 136px; resize: vertical; }
-    select:focus, textarea:focus, button:focus-visible, a:focus-visible { outline: 3px solid #a7b8ff; outline-offset: 2px; }
+    select:focus, textarea:focus, input:focus, button:focus-visible, a:focus-visible { outline: 3px solid #a7b8ff; outline-offset: 2px; }
     .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .is-hidden { display: none !important; }
     .buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 19px; }
     button, .link-button { font: inherit; font-weight: 700; padding: 11px 17px; border-radius: 9px; cursor: pointer; border: 1px solid #d2d9e7; background: #fff; color: #304277; text-decoration: none; display: inline-block; }
     .primary { color: white; background: #4356b9; border-color: #4356b9; }
@@ -41,13 +42,15 @@
   <main>
     <section class="panel" aria-labelledby="form-title">
       <h2 id="form-title">1. Spune ce ai nevoie</h2>
-      <p class="hint">Alege tipul de text, tonul dorit și descrie pe scurt situația.</p>
+      <p class="hint">Alege un document general sau o instituție, apoi descrie pe scurt situația.</p>
 
       <div class="fields">
         <div>
           <label for="tip">Tipul documentului</label>
           <select id="tip">
             <option value="mesaj">Mesaj pentru client</option>
+            <option value="cerere">Cerere către o instituție</option>
+            <option value="sesizare">Sesizare / petiție</option>
             <option value="email">E-mail profesional</option>
             <option value="adresa">Adresă oficială</option>
             <option value="referat">Referat justificativ</option>
@@ -66,7 +69,41 @@
         </div>
       </div>
 
-      <label for="cerinta">Ce trebuie să conțină?</label>
+
+      <div class="fields">
+        <div>
+          <label for="institutie">Instituția (opțional)</label>
+          <select id="institutie">
+            <option value="">Fără instituție – prompt general</option>
+            <option value="primarie">Primărie / UAT</option>
+            <option value="cadastru">Cadastru / OCPI / ANCPI</option>
+            <option value="dsp">DSP – Sănătate publică</option>
+            <option value="apm">APM – Protecția mediului</option>
+            <option value="politie">Poliție</option>
+            <option value="anaf">ANAF – Fiscalitate</option>
+            <option value="itm">ITM – Relații de muncă</option>
+            <option value="onrc">ONRC – Registrul Comerțului</option>
+            <option value="isu">ISU – Situații de urgență</option>
+            <option value="dsvsa">DSVSA – Siguranța alimentelor</option>
+            <option value="apia">APIA – Agricultură</option>
+            <option value="afir">AFIR – Fonduri europene</option>
+            <option value="alta">Altă instituție</option>
+          </select>
+        </div>
+        <div>
+          <label for="demers">Tipul solicitării</label>
+          <select id="demers" disabled>
+            <option value="">Alege mai întâi o instituție</option>
+          </select>
+        </div>
+      </div>
+      <div id="alta-wrap" class="is-hidden">
+        <label for="alta-institutie">Denumirea instituției</label>
+        <input type="text" id="alta-institutie" placeholder="Ex.: Instituția Prefectului Tulcea">
+      </div>
+      <p class="hint" style="margin: 8px 0 4px;">Modelele sunt orientative și nu înlocuiesc formularele sau cerințele oficiale.</p>
+
+      <label for="cerinta">Descrie situația și ce dorești să obții</label>
       <textarea id="cerinta" placeholder="Exemplu: Vreau să anunț un client că trebuie să transmită documentele contabile până vineri."></textarea>
       <div class="buttons">
         <button class="primary" id="generate" type="button">Generează promptul</button>
@@ -95,6 +132,8 @@
   <script>
     const models = {
       mesaj: 'un mesaj adresat unui client, potrivit pentru WhatsApp',
+      cerere: 'o cerere oficială, cu destinatar, obiect, descriere și solicitare clară',
+      sesizare: 'o sesizare sau petiție, prezentând doar faptele relatate și cererea adresată instituției',
       email: 'un e-mail profesional, cu subiect, formulă de salut și încheiere',
       adresa: 'o adresă oficială, cu titlu, destinatar și formulare administrativă adecvată',
       referat: 'un referat justificativ cu obiect, context, justificare și concluzie',
@@ -107,10 +146,105 @@
     const result = document.getElementById('result');
     const notice = document.getElementById('notice');
 
+
+    const institutionData = {
+      primarie: {
+        name: 'Primărie / UAT',
+        actions: ['Cerere sau adresă oficială', 'Sesizare privind o problemă locală', 'Informații privind urbanismul / certificatul de urbanism', 'Solicitare informații de interes public', 'Clarificări privind acte administrative', 'Referat administrativ orientativ'],
+        example: 'Vreau să solicit primăriei informații privind stadiul unei cereri depuse anterior. Am numărul de înregistrare și data depunerii. Redactează o adresă respectuoasă.'
+      },
+      cadastru: {
+        name: 'Oficiul de Cadastru și Publicitate Imobiliară (OCPI / ANCPI)',
+        actions: ['Informații despre cartea funciară / imobil', 'Clarificări documentație cadastrală', 'Solicitare privind rectificarea unor date', 'Verificare stadiu dosar', 'Sesizare privind o neconcordanță'],
+        example: 'Am identificat o neconcordanță între suprafața terenului din acte și cea din documentația cadastrală. Vreau să solicit OCPI informații despre pașii de clarificare, fără să presupun cauza diferenței.'
+      },
+      dsp: {
+        name: 'Direcția de Sănătate Publică (DSP)',
+        actions: ['Informații despre avize / autorizații sanitare', 'Solicitare verificare documentație', 'Memoriu descriptiv orientativ', 'Răspuns la solicitare de completări'],
+        example: 'Urmează să deschid o activitate de alimentație publică într-un spațiu închiriat. Vreau să întreb DSP care este procedura aplicabilă și care sunt documentele actualizate necesare.'
+      },
+      apm: {
+        name: 'Agenția pentru Protecția Mediului (APM)',
+        actions: ['Solicitare punct de vedere pentru activitate', 'Informații despre acord / autorizație de mediu', 'Memoriu de prezentare orientativ', 'Răspuns la clarificări', 'Notificare privind modificarea activității'],
+        example: 'O societate dorește să desfășoare o activitate de producție. Vreau să solicit APM un punct de vedere privind procedura de mediu aplicabilă și documentația de pregătit.'
+      },
+      politie: {
+        name: 'Poliție',
+        actions: ['Sesizare privind o faptă', 'Petiție către poliție', 'Solicitare informații despre stadiul sesizării', 'Completare la o sesizare depusă'],
+        example: 'Vreau să sesizez poliția în legătură cu un incident petrecut în localitatea mea. Redactează o sesizare cronologică, neutră, cu loc pentru dată, loc, martori și dovezi, fără acuzații neconfirmate.'
+      },
+      anaf: {
+        name: 'Agenția Națională de Administrare Fiscală (ANAF)',
+        actions: ['Cerere de clarificări fiscale', 'Solicitare de corectare a unei declarații', 'Adresă privind o situație din SPV', 'Răspuns la notificare', 'Solicitare informații despre obligații fiscale'],
+        example: 'O societate dorește clarificări cu privire la o neconcordanță observată în evidența obligațiilor fiscale din SPV. Vreau o adresă către ANAF în care solicit verificarea situației.'
+      },
+      itm: {
+        name: 'Inspectoratul Teritorial de Muncă (ITM)',
+        actions: ['Clarificări privind REGES-ONLINE', 'Cerere de informații privind raporturile de muncă', 'Sesizare în domeniul muncii', 'Răspuns la o solicitare ITM'],
+        example: 'Un angajator dorește clarificări despre înregistrarea unei modificări a contractului individual de muncă în REGES-ONLINE. Vreau o solicitare de punct de vedere către ITM.'
+      },
+      onrc: {
+        name: 'Oficiul Național al Registrului Comerțului (ONRC)',
+        actions: ['Informații despre înființare / mențiuni', 'Clarificări privind dosarul depus', 'Răspuns la solicitarea de completări', 'Cerere informații privind documentele necesare'],
+        example: 'Vreau să solicit ONRC clarificări cu privire la documentele necesare pentru modificarea sediului social al unei societăți.'
+      },
+      isu: {
+        name: 'Inspectoratul pentru Situații de Urgență (ISU)',
+        actions: ['Informații despre avizare / autorizare', 'Clarificări privind documentația', 'Solicitare punct de vedere', 'Răspuns la completări'],
+        example: 'Vreau să întreb ISU dacă pentru un spațiu destinat unei activități comerciale sunt necesare proceduri de avizare sau autorizare și ce documente trebuie verificate.'
+      },
+      dsvsa: {
+        name: 'Direcția Sanitară Veterinară și pentru Siguranța Alimentelor (DSVSA)',
+        actions: ['Informații privind înregistrarea / autorizarea', 'Clarificări privind activitatea alimentară', 'Solicitare verificare documente', 'Răspuns la completări'],
+        example: 'Urmează să desfășor o activitate de preparare și comercializare a alimentelor. Vreau să solicit DSVSA informații despre procedura aplicabilă și documentele necesare.'
+      },
+      apia: {
+        name: 'Agenția de Plăți și Intervenție pentru Agricultură (APIA)',
+        actions: ['Răspuns la solicitare de clarificări', 'Cerere de informații pentru exploatație', 'Solicitare corectare / verificare date', 'Transmitere documente justificative'],
+        example: 'Am primit o solicitare de clarificări de la APIA privind documentele aferente unor parcele agricole. Vreau un răspuns structurat, cu loc pentru lista documentelor anexate.'
+      },
+      afir: {
+        name: 'Agenția pentru Finanțarea Investițiilor Rurale (AFIR)',
+        actions: ['Răspuns la clarificările unui proiect', 'Solicitare informații privind o intervenție', 'Notificare privind modificări în proiect', 'Adresă de transmitere documente'],
+        example: 'Beneficiarul unui proiect AFIR trebuie să răspundă unei solicitări de clarificări și să transmită documente justificative. Vreau o adresă formală cu loc pentru numărul proiectului și anexele transmise.'
+      },
+      alta: {
+        name: 'Altă instituție',
+        actions: ['Cerere / adresă oficială', 'Solicitare informații', 'Sesizare / petiție', 'Răspuns la clarificări', 'Transmitere documente'],
+        example: 'Vreau să trimit unei instituții o solicitare oficială de informații privind procedura aplicabilă situației mele. Am nevoie de o adresă clară și politicoasă.'
+      }
+    };
+    const institutionSelect = document.getElementById('institutie');
+    const actionSelect = document.getElementById('demers');
+    const otherInstitutionWrap = document.getElementById('alta-wrap');
+    const otherInstitutionInput = document.getElementById('alta-institutie');
+
+    institutionSelect.addEventListener('change', () => {
+      const info = institutionData[institutionSelect.value];
+      actionSelect.replaceChildren();
+      const choices = info ? info.actions : ['Alege mai întâi o instituție'];
+      for (const action of choices) {
+        const option = document.createElement('option');
+        option.value = action;
+        option.textContent = action;
+        actionSelect.appendChild(option);
+      }
+      actionSelect.disabled = !info;
+      otherInstitutionWrap.classList.toggle('is-hidden', institutionSelect.value !== 'alta');
+      if (info) {
+        tip.value = institutionSelect.value === 'politie' ? 'sesizare' : 'cerere';
+      }
+      notice.textContent = '';
+    });
+
     document.getElementById('example').addEventListener('click', () => {
-      tip.value = 'mesaj';
       ton.value = 'clar și profesional';
-      cerinta.value = 'Anunță un client că trebuie să trimită documentele contabile pentru luna trecută până vineri. Mesajul trebuie să fie politicos și scurt.';
+      if (institutionSelect.value) {
+        cerinta.value = institutionData[institutionSelect.value].example;
+      } else {
+        tip.value = 'mesaj';
+        cerinta.value = 'Anunță un client că trebuie să trimită documentele contabile pentru luna trecută până vineri. Mesajul trebuie să fie politicos și scurt.';
+      }
       notice.textContent = 'Exemplul a fost completat. Apasă „Generează promptul”.';
       cerinta.focus();
     });
@@ -122,8 +256,23 @@
         cerinta.focus();
         return;
       }
+      const info = institutionData[institutionSelect.value];
+      const institutionName = institutionSelect.value === 'alta' ? otherInstitutionInput.value.trim() : (info ? info.name : '');
+      if (info && !institutionName) {
+        notice.textContent = 'Completează numele instituției.';
+        otherInstitutionInput.focus();
+        return;
+      }
+      const institutionInstructions = info ? [
+        'Instituția destinatară: ' + institutionName + '.',
+        'Demersul dorit: ' + actionSelect.value + '.',
+        'Dacă este relevant, prezintă separat o listă orientativă de pași și documente de verificat.',
+        'Nu prezenta această listă drept exhaustivă și precizează că formularele, procedurile, competența instituției și cerințele legale trebuie verificate în surse oficiale actualizate.',
+        'Nu inventa prevederi legale, termene, taxe sau cerințe administrative.'
+      ] : [];
       result.value = [
         'Acționează ca un asistent specializat în redactarea documentelor în limba română.',
+        ...institutionInstructions,
         'Redactează ' + models[tip.value] + '.',
         'Folosește un stil ' + ton.value + '.',
         '',
